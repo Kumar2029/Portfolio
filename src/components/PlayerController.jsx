@@ -7,7 +7,7 @@ import { useKeyboard } from '../hooks/useKeyboard';
 const SPEED = 5;
 const PLAYER_HEIGHT = 1.8;
 
-export default function PlayerController({ isHovering, appState, selectedObject, startPosition = [0, 1.8, 0] }) {
+export default function PlayerController({ isHovering, appState, selectedObject, startPosition = [0, 1.8, 0], systemPhase = 0 }) {
   const { camera } = useThree();
   const movement = useKeyboard();
   
@@ -30,6 +30,17 @@ export default function PlayerController({ isHovering, appState, selectedObject,
   useFrame((state, delta) => {
     // 1. STATE: INTRO (Completely frozen cinematic wait)
     if (appState === 'INTRO') return;
+    
+    // 6. STATE: OVERRIDE_SEQUENCE (Violent Camera Shake Loss of Control)
+    if (appState === 'OVERRIDE_SEQUENCE') {
+       const shakeIntensity = systemPhase < 3 ? 0.02 : 0.0;
+       camera.position.set(
+         startPosition[0] + (Math.random() - 0.5) * shakeIntensity,
+         startPosition[1] + (Math.random() - 0.5) * shakeIntensity,
+         startPosition[2] + (Math.random() - 0.5) * shakeIntensity
+       );
+       return;
+    }
     
     // 2. STATE: AUTOFOCUS (Lerp camera aggressively towards the Skill Core initially)
     if (appState === 'AUTOFOCUS') {

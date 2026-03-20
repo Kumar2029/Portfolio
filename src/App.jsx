@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { EffectComposer, Bloom, DepthOfField } from '@react-three/postprocessing';
+import { EffectComposer, Bloom, DepthOfField, Glitch } from '@react-three/postprocessing';
 import PlayerController from './components/PlayerController';
 import Environment from './components/Environment';
 // eslint-disable-next-line no-unused-vars
 import { AnimatePresence, motion } from 'framer-motion';
 import InfoPanel from './components/InfoPanel';
+import DeveloperProfile from './components/DeveloperProfile';
+import SecretPanel from './components/SecretPanel';
 import { INTERACTIVE_OBJECTS } from './config/InteractiveObjects';
 import { AudioEngine } from './utils/AudioEngine';
 
@@ -16,6 +18,40 @@ export default function App() {
   const [appState, setAppState] = useState('INTRO'); // INTRO, AUTOFOCUS, EXPLORE, INTERACT, EXITING
   const [visitedNodes, setVisitedNodes] = useState([]);
   const [accessDenied, setAccessDenied] = useState(false);
+  
+  // Gamification & Objective Mechanics natively
+  const [lastActivationTime, setLastActivationTime] = useState(0);
+  const [comboText, setComboText] = useState('');
+  const [completed, setCompleted] = useState(false);
+  const [secretMode, setSecretMode] = useState(false);
+  
+  // Refs enforcing closure validity inside the native event listener optimally
+  const visitedNodesRef = useRef(visitedNodes);
+  useEffect(() => { visitedNodesRef.current = visitedNodes; }, [visitedNodes]);
+  const lastActivationRef = useRef(lastActivationTime);
+  useEffect(() => { lastActivationRef.current = lastActivationTime; }, [lastActivationTime]);
+  const completedRef = useRef(completed);
+  useEffect(() => { completedRef.current = completed; }, [completed]);
+  
+  // System Personality Tracks
+  const [systemMode, setSystemMode] = useState('standard');
+  const [systemDialogue, setSystemDialogue] = useState('AWAITING INPUT...');
+  const [displayedDialogue, setDisplayedDialogue] = useState('');
+  const [systemPhase, setSystemPhase] = useState(0);
+
+  // Native Typewriter Effect Engine securely tracking `systemDialogue` hooks organically
+  useEffect(() => {
+    let index = 0;
+    setDisplayedDialogue('');
+    if (!systemDialogue) return;
+    
+    const typewriter = setInterval(() => {
+      setDisplayedDialogue((prev) => prev + systemDialogue.charAt(index));
+      index++;
+      if (index >= systemDialogue.length) clearInterval(typewriter);
+    }, 30);
+    return () => clearInterval(typewriter);
+  }, [systemDialogue]);
 
   // Pure Math Native Progress Parsing securely
   const nonCoreIds = INTERACTIVE_OBJECTS.filter(o => o.type !== 'core').map(o => o.id);
@@ -24,15 +60,44 @@ export default function App() {
   
   // Cinematic Flow Timers
   useEffect(() => {
-    if (appState === 'INTRO') {
-      const timer = setTimeout(() => setAppState('AUTOFOCUS'), 3500);
-      return () => clearTimeout(timer);
-    }
     if (appState === 'AUTOFOCUS') {
       const timer = setTimeout(() => {
         setAppState('EXPLORE');
-      }, 3000);
+      }, 2000);
       return () => clearTimeout(timer);
+    }
+
+    if (appState === 'OVERRIDE_SEQUENCE') {
+      setSystemPhase(1);
+      setSystemMode('override');
+      setSystemDialogue('Unauthorized Access Detected...');
+      AudioEngine.playGlitch();
+      
+      const t1 = setTimeout(() => {
+        setSystemPhase(2);
+        setSystemDialogue('Attempting Containment...');
+        AudioEngine.playGlitch();
+      }, 1000);
+      
+      const t2 = setTimeout(() => {
+        setSystemPhase(3);
+        setSystemDialogue('System Integrity Failing...');
+        AudioEngine.playBassPulse();
+      }, 2500);
+      
+      const t3 = setTimeout(() => {
+        setSystemPhase(4);
+        setSystemDialogue('Override Denied. System Restored.');
+        AudioEngine.playStabilize();
+      }, 3500);
+      
+      const t4 = setTimeout(() => {
+        setSystemMode('recovery');
+        setAppState('EXPLORE');
+        setSystemPhase(0);
+      }, 4500);
+      
+      return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
     }
   }, [appState]);
 
@@ -65,6 +130,29 @@ export default function App() {
         return;
       }
       
+      // Easter Egg Hook isolating native completions!
+      if (e.key.toLowerCase() === 'h' && completedRef.current && appStateRef.current === 'EXPLORE') {
+         setAppState('SECRET_TRANSITION');
+         setSystemDialogue('Hidden Layer Detected...');
+         AudioEngine.playGlitch();
+         
+         if (document.pointerLockElement) {
+            document.exitPointerLock();
+         }
+
+         setTimeout(() => {
+            setSystemDialogue('Accessing Developer Core...');
+            AudioEngine.playGlitch();
+         }, 1500);
+
+         setTimeout(() => {
+            setSecretMode(true);
+            setAppState('SECRET_PANEL');
+            AudioEngine.playBassPulse();
+         }, 3000);
+         return;
+      }
+      
       if (e.key.toLowerCase() === 'e') {
         const currentActive = activeObjRef.current;
         // Block interaction if we are not in EXPLORE mode natively scanning
@@ -84,6 +172,21 @@ export default function App() {
             setIsInteracting(false);
             setSelectedObject(currentActive);
             setAppState('INTERACT');
+            
+            // Native Interactive Objective Gameplay Mechanics cleanly parsing logic!
+            if (currentActive.type !== 'core' && !visitedNodesRef.current.includes(currentActive.id)) {
+                const now = Date.now();
+                if (lastActivationRef.current > 0 && (now - lastActivationRef.current < 8000)) {
+                    setComboText('+FAST SYNC BONUS!');
+                    setTimeout(() => setComboText(''), 2500);
+                } else {
+                    setComboText('+MODULE ACTIVATED');
+                    setTimeout(() => setComboText(''), 2000);
+                }
+                setLastActivationTime(now);
+            }
+            if (currentActive.type === 'core' && !completedRef.current) setCompleted(true);
+            
             setVisitedNodes(prev => (prev.includes(currentActive.id) ? prev : [...prev, currentActive.id]));
             
             if (document.pointerLockElement) {
@@ -116,6 +219,10 @@ export default function App() {
             visitedNodes={visitedNodes}
             appState={appState}
             progress={progress}
+            systemMode={systemMode}
+            systemPhase={systemPhase}
+            completed={completed}
+            secretMode={secretMode}
           />
           
           {/* Map Navigational Controller securely tracking App States */}
@@ -124,10 +231,17 @@ export default function App() {
             appState={appState}
             selectedObject={selectedObject}
             startPosition={[0, 1.8, 0]} 
+            systemPhase={systemPhase}
           />
 
           {/* Post Processing Signature Overhaul */}
           <EffectComposer>
+            <Glitch 
+               active={appState === 'OVERRIDE_SEQUENCE' && systemPhase < 3} 
+               delay={[0.1, 0.3]} 
+               duration={[0.1, 0.4]} 
+               strength={[0.1, 0.3]} 
+            />
             <DepthOfField 
               target={appState === 'INTERACT' && selectedObject ? selectedObject.position : [0, 1.8, -10]} 
               focalLength={0.4} 
@@ -145,35 +259,35 @@ export default function App() {
           <motion.div 
             initial={{ opacity: 1 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0, transition: { duration: 2.0 } }}
-            className="absolute inset-0 z-50 flex items-center justify-center bg-black"
+            exit={{ opacity: 0, transition: { duration: 1.0 } }}
+            className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950 backdrop-blur-md"
           >
-            <div className="text-center flex flex-col items-center">
-              <motion.h1 
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5, duration: 1.2 }}
-                className="text-4xl md:text-5xl font-black text-white tracking-widest uppercase mb-10"
-              >
-                INITIALIZING<br/>
-                <span className="text-transparent bg-clip-text bg-linear-to-r from-cyan-400 to-purple-500">DEVELOPER SYSTEM...</span>
-              </motion.h1>
-              
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 1.5, duration: 1 }}
-                className="max-w-md w-full bg-slate-900/50 border border-slate-800 p-6 rounded-2xl flex flex-col gap-5 text-slate-300 font-mono text-xs tracking-[0.2em] shadow-2xl"
-              >
-                <div className="flex items-center justify-between border-b border-slate-800/50 pb-2">
-                  <span>Navigation Grid</span>
-                  <span className="text-white bg-slate-800 px-3 py-1 rounded border border-slate-700">W A S D</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Engage Terminals</span>
-                  <span className="text-cyan-200 bg-cyan-950 px-3 py-1 rounded border border-cyan-800">E</span>
-                </div>
-              </motion.div>
+            <div className="max-w-md w-full p-8 border border-cyan-500/30 bg-slate-900/80 rounded-xl shadow-[0_0_30px_rgba(0,255,255,0.1)] flex flex-col font-mono">
+               <motion.h1 
+                 initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}
+                 className="text-cyan-400 font-bold tracking-widest uppercase mb-2 text-xl"
+               >
+                 SYSTEM INITIALIZED...
+               </motion.h1>
+               <motion.p 
+                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
+                 className="text-cyan-200 text-xs tracking-widest mb-8 opacity-70"
+               >
+                 USER DETECTED.
+               </motion.p>
+               
+               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.5 }} className="flex flex-col gap-3">
+                 <p className="text-white text-xs tracking-[0.2em] mb-2 opacity-50 uppercase">Select Access Mode:</p>
+                 <button onClick={() => { AudioEngine.playPing(); setSystemMode('projects'); setSystemDialogue('Project modules unlocked.'); setAppState('AUTOFOCUS'); }} className="text-left px-5 py-3 border border-slate-700 hover:border-cyan-400 hover:bg-cyan-950/50 hover:text-cyan-300 transition-all text-slate-300 tracking-widest text-xs uppercase group">
+                    <span className="opacity-50 group-hover:opacity-100 mr-3">[1]</span> Explore Projects
+                 </button>
+                 <button onClick={() => { AudioEngine.playPing(); setSystemMode('capabilities'); setSystemDialogue('Capabilities loading...'); setAppState('AUTOFOCUS'); }} className="text-left px-5 py-3 border border-slate-700 hover:border-cyan-400 hover:bg-cyan-950/50 hover:text-cyan-300 transition-all text-slate-300 tracking-widest text-xs uppercase group">
+                    <span className="opacity-50 group-hover:opacity-100 mr-3">[2]</span> View Capabilities
+                 </button>
+                 <button onClick={() => { AudioEngine.playPing(); setSystemMode('override'); setSystemDialogue('UNAUTHORIZED ACCESS DETECTED...'); setAppState('OVERRIDE_SEQUENCE'); }} className="mt-2 text-left px-5 py-3 border border-slate-700 hover:border-red-500 hover:bg-red-950/50 hover:text-red-400 transition-all text-slate-500 tracking-widest text-xs uppercase hover:shadow-[0_0_15px_rgba(255,0,0,0.3)] group">
+                    <span className="opacity-50 group-hover:opacity-100 mr-3 text-red-500">[!]</span> Override System
+                 </button>
+               </motion.div>
             </div>
           </motion.div>
         )}
@@ -192,18 +306,45 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Central Interactive Mission Loop Progression HUD */}
+      {/* Objective & Progression HUD completely mapped natively */}
       {appState !== 'INTRO' && (
-        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 pointer-events-none transition-opacity duration-1000">
-           <div className="bg-slate-900/80 border border-slate-700/80 backdrop-blur-md px-8 py-3 rounded-xl flex flex-col items-center shadow-lg shadow-cyan-900/20">
-             <p className="text-cyan-400 font-mono text-xs font-bold tracking-[0.25em] uppercase drop-shadow-[0_0_5px_rgba(0,255,255,0.4)]">
-                {progress === 0 && "AWAITING INITIALIZATION"}
-                {progress > 0 && progress < 1 && "CORE SYSTEMS UNLOCKING"}
-                {progress === 1 && "DEVELOPER SYSTEM ACTIVATED"}
-             </p>
-             <div className="w-full h-1 bg-slate-800 mt-3 rounded overflow-hidden">
-                <div className="h-full bg-cyan-500 transition-all duration-1000 shadow-[0_0_10px_rgba(0,255,255,1)]" style={{ width: `${progress * 100}%` }} />
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 pointer-events-none transition-opacity duration-1000 w-[90%] max-w-md">
+           <div className={`bg-slate-950/80 border ${completed ? 'border-amber-500/80 shadow-[0_0_20px_rgba(245,158,11,0.2)]' : 'border-slate-700/80 shadow-[0_0_20px_rgba(0,255,255,0.05)]'} backdrop-blur-md p-4 rounded-xl flex flex-col shadow-xl transition-all duration-700`}>
+             <div className="flex justify-between items-end mb-3">
+                 <div>
+                     <p className={`font-mono text-[10px] tracking-[0.2em] uppercase ${completed ? 'text-amber-500' : 'text-slate-400'}`}>
+                         System Status: {completed ? 'ONLINE' : 'INCOMPLETE'}
+                     </p>
+                     <p className={`font-mono text-[10px] md:text-xs font-bold tracking-widest uppercase mt-1 ${completed ? 'text-amber-400 drop-shadow-[0_0_5px_rgba(245,158,11,0.5)]' : 'text-cyan-400 drop-shadow-[0_0_5px_rgba(0,255,255,0.4)]'}`}>
+                        {progress === 1 ? (completed ? "DEVELOPER IDENTITY SECURED" : "CORE ACCESS GRANTED") : "INITIALIZE ALL MODULES"}
+                     </p>
+                 </div>
+                 <p className="font-mono text-lg font-black tracking-widest text-white">{Math.round(progress * 100)}%</p>
              </div>
+             <div className="relative w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                 <motion.div 
+                     className={`absolute top-0 left-0 h-full ${completed ? 'bg-amber-400' : 'bg-cyan-400'}`}
+                     initial={{ width: 0 }}
+                     animate={{ width: `${progress * 100}%` }}
+                     transition={{ type: 'spring', stiffness: 50, damping: 15 }}
+                 />
+             </div>
+             
+             {/* Fast Sync Bonus Float Tracker */}
+             <AnimatePresence>
+                {comboText && (
+                    <motion.div 
+                        initial={{ opacity: 0, y: -10, scale: 0.8 }} 
+                        animate={{ opacity: 1, y: 0, scale: 1 }} 
+                        exit={{ opacity: 0, scale: 1.1 }} 
+                        className="absolute -bottom-11 left-1/2 -translate-x-1/2 whitespace-nowrap"
+                    >
+                        <p className="text-[10px] md:text-xs font-mono font-bold text-amber-400 tracking-[0.2em] md:tracking-[0.3em] pl-4 pr-3 py-1.5 bg-amber-950/90 border border-amber-500/50 rounded-full drop-shadow-[0_0_10px_rgba(245,158,11,0.7)] uppercase">
+                            {comboText}
+                        </p>
+                    </motion.div>
+                )}
+             </AnimatePresence>
            </div>
         </div>
       )}
@@ -226,6 +367,18 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Dynamic Native System Dialogue UI HUD Tracker */}
+      {appState !== 'INTRO' && (
+        <div className="absolute bottom-8 left-8 z-20 pointer-events-none opacity-90 mix-blend-screen transition-all duration-500">
+           <div className={`border-l-2 pl-4 py-1 ${systemMode === 'override' ? 'border-red-500' : 'border-cyan-500'}`}>
+             <p className={`font-mono text-[10px] md:text-sm tracking-widest uppercase ${systemMode === 'override' ? 'text-red-400 drop-shadow-[0_0_8px_rgba(255,0,0,0.8)]' : 'text-cyan-300 drop-shadow-[0_0_8px_rgba(0,255,255,0.4)]'}`}>
+               &gt; {displayedDialogue}
+               <span className="w-2 h-3 ml-1 bg-current inline-block animate-pulse align-middle" />
+             </p>
+           </div>
+        </div>
+      )}
 
       {/* Minimap / Tracker Backup */}
       {appState !== 'INTRO' && (
@@ -296,11 +449,33 @@ export default function App() {
         <AnimatePresence>
           {appState === 'INTERACT' && selectedObject && (
             <div className="pointer-events-auto w-full h-full flex items-center justify-center p-4">
-              <InfoPanel key="infopanel" node={selectedObject} onClose={closeModal} />
+              {selectedObject.type === 'core' ? (
+                 <DeveloperProfile key="devprofile" onClose={closeModal} />
+              ) : (
+                 <InfoPanel key="infopanel" node={selectedObject} onClose={closeModal} />
+              )}
             </div>
           )}
         </AnimatePresence>
       </div>
+      {/* Secret Layer Architectural Override */}
+      <div className="absolute inset-0 z-50 pointer-events-none">
+        <AnimatePresence>
+          {appState === 'SECRET_PANEL' && (
+            <div className="pointer-events-auto w-full h-full flex items-center justify-center p-4">
+              <SecretPanel onClose={() => { 
+                  AudioEngine.playPing(); 
+                  setAppState('EXITING'); 
+                  setTimeout(() => { 
+                      setAppState('EXPLORE'); 
+                      if (!document.pointerLockElement) document.body.requestPointerLock?.(); 
+                  }, 1200); 
+              }} />
+            </div>
+          )}
+        </AnimatePresence>
+      </div>
+
     </div>
   );
 }
